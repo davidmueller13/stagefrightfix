@@ -1,0 +1,60 @@
+From e79eaf489ad7fa840cb3fb4b5dfa9cdb8e4fe7f0 Mon Sep 17 00:00:00 2001
+From: "Joshua J. Drake" <android-open-source@qoop.org>
+Date: Wed, 8 Apr 2015 23:13:02 -0500
+Subject: [PATCH 3/7] Fix multiple division-by-zero conditions in MPEG4 parsing
+
+Several situations arise processing MP4 atoms that lead to undefined behavior
+when dividing by zero. Typically this results in a crash (denial of service
+condition).
+
+NOTE: In most cases we simply avoid the division, leaving kKeyDuration unset.
+It may be more desirable to bail out, as we do in the parseSegmentIndex case.
+
+Change-Id: Iab0118934b49eabd0b44be8408160d7f122c28df
+---
+ media/libstagefright/MPEG4Extractor.cpp | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/media/libstagefright/MPEG4Extractor.cpp b/media/libstagefright/MPEG4Extractor.cpp
+index 47b267f..44218ee 100644
+--- a/media/libstagefright/MPEG4Extractor.cpp
++++ b/media/libstagefright/MPEG4Extractor.cpp
+@@ -1207,7 +1207,7 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
+                     duration = ntohl(duration32);
+                 }
+             }
+-            if (duration != 0) {
++            if (duration != 0 && mLastTrack->timescale != 0) {
+                 mLastTrack->meta->setInt64(
+                         kKeyDuration, (duration * 1000000) / mLastTrack->timescale);
+             }
+@@ -1821,7 +1821,7 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
+                 }
+                 duration = d32;
+             }
+-            if (duration != 0) {
++            if (duration != 0 && mHeaderTimescale != 0) {
+                 mFileMetaData->setInt64(kKeyDuration, duration * 1000000 / mHeaderTimescale);
+             }
+ 
+@@ -1870,7 +1870,7 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
+                 return ERROR_MALFORMED;
+             }
+ 
+-            if (duration != 0) {
++            if (duration != 0 && mHeaderTimescale != 0) {
+                 mFileMetaData->setInt64(kKeyDuration, duration * 1000000 / mHeaderTimescale);
+             }
+ 
+@@ -2080,6 +2080,8 @@ status_t MPEG4Extractor::parseSegmentIndex(off64_t offset, size_t size) {
+     if (!mDataSource->getUInt32(offset + 8, &timeScale)) {
+         return ERROR_MALFORMED;
+     }
++    if (timeScale < 1)
++        return ERROR_MALFORMED;
+     ALOGV("sidx refid/timescale: %d/%d", referenceId, timeScale);
+ 
+     uint64_t earliestPresentationTime;
+-- 
+1.9.1
+

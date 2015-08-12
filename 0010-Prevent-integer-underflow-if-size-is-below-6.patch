@@ -1,0 +1,32 @@
+From ab26d8fbda640f3a9e6d6bb8108a20514227f396 Mon Sep 17 00:00:00 2001
+From: "Joshua J. Drake" <android-open-source@qoop.org>
+Date: Mon, 4 May 2015 17:57:24 -0500
+Subject: [PATCH 10/12] Prevent integer underflow if size is below 6
+
+When processing 3GPP metadata, a subtraction operation may underflow and
+lead to a rather large linear byteswap operation in the subsequent
+framedata decoding code. Bound the 'size' value to prevent this from
+occurring.
+
+Change-Id: I35dfbc8878c6b65cfe8b8adb7351a77ad4d604e5
+---
+ media/libstagefright/MPEG4Extractor.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/media/libstagefright/MPEG4Extractor.cpp b/media/libstagefright/MPEG4Extractor.cpp
+index 6858e6d..c689d6c 100644
+--- a/media/libstagefright/MPEG4Extractor.cpp
++++ b/media/libstagefright/MPEG4Extractor.cpp
+@@ -2540,6 +2540,9 @@ status_t MPEG4Extractor::parse3GPPMetaData(off64_t offset, size_t size, int dept
+         int len16 = 0; // Number of UTF-16 characters
+ 
+         // smallest possible valid UTF-16 string w BOM: 0xfe 0xff 0x00 0x00
++        if (size < 6)
++            return ERROR_MALFORMED;
++
+         if (size - 6 >= 4) {
+             len16 = ((size - 6) / 2) - 1; // don't include 0x0000 terminator
+             framedata = (char16_t *)(buffer + 6);
+-- 
+1.9.1
+

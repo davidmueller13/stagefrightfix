@@ -1,0 +1,44 @@
+From 33b7fce8352e78d27a7371b123ca6986f77290a2 Mon Sep 17 00:00:00 2001
+From: "Joshua J. Drake" <android-open-source@qoop.org>
+Date: Mon, 4 May 2015 17:33:49 -0500
+Subject: [PATCH 09/12] Prevent reading past the end of the buffer in 3GPP
+
+Metadata processed within the parse3GPPMetaData function may not be NUL
+terminated and thus calling setCString may read out of bounds. Ensure
+proper NUL termination, but take care not to interfere with other special
+cases (ie, albm).
+
+Change-Id: Ie93b3038b534b4c4460571a68f4d734cff7ad324
+---
+ media/libstagefright/MPEG4Extractor.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/media/libstagefright/MPEG4Extractor.cpp b/media/libstagefright/MPEG4Extractor.cpp
+index 957bd6f..6858e6d 100644
+--- a/media/libstagefright/MPEG4Extractor.cpp
++++ b/media/libstagefright/MPEG4Extractor.cpp
+@@ -2467,11 +2467,11 @@ status_t MPEG4Extractor::parseITunesMetaData(off64_t offset, size_t size) {
+ }
+ 
+ status_t MPEG4Extractor::parse3GPPMetaData(off64_t offset, size_t size, int depth) {
+-    if (size < 4) {
++    if (size < 4 || size == SIZE_MAX) {
+         return ERROR_MALFORMED;
+     }
+ 
+-    uint8_t *buffer = new (std::nothrow) uint8_t[size];
++    uint8_t *buffer = new (std::nothrow) uint8_t[size + 1];
+     if (buffer == NULL) {
+         return ERROR_MALFORMED;
+     }
+@@ -2563,6 +2563,7 @@ status_t MPEG4Extractor::parse3GPPMetaData(off64_t offset, size_t size, int dept
+         }
+ 
+         if (isUTF8) {
++            buffer[size] = 0;
+             mFileMetaData->setCString(metadataKey, (const char *)buffer + 6);
+         } else {
+             // Convert from UTF-16 string to UTF-8 string.
+-- 
+1.9.1
+
